@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小肥大排档门店 - 10月数据分析交互看板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* 页面主体背景色: #f0f4f8 */
+        body { font-family: 'Inter', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif'; background-color: #f0f4f8; }
+        
+        /* 匹配 body 背景色的 class */
+        .header-bg-match { background-color: #f0f4f8; } 
+        
+        /* 核心颜色: Indigo-700 #4338ca / Amber-600 #d97706 / Blue-700 #1d4ed8 */
+
+        /* 统一的圆角和阴影 */
+        .card { 
+            border-radius: 1.25rem;
+            background-color: white;
+            box-shadow: 0 6px 15px -3px rgb(0 0 0 / 0.08), 0 3px 6px -4px rgb(0 0 0 / 0.03); 
+            padding: 1.5rem;
+            transition: all 0.3s;
+        }
+
+        /* --- Tab Container (实现响应式换行) --- */
+        .tab-container {
+            display: flex;
+            justify-content: flex-start;
+            flex-wrap: wrap; /* 默认允许换行（手机端）*/
+            border-bottom: 2px solid #e5e7eb;
+            margin-bottom: 2.5rem;
+            padding-bottom: 0.5rem;
+        }
+        /* 针对桌面端（≥ 1024px）强制不换行 */
+        @media (min-width: 1024px) {
+            .tab-container {
+                flex-wrap: nowrap;
+            }
+        }
+
+        /* --- Tab Styling (字体加大，间距增大) --- */
+        .tab-button { 
+            transition: all 0.2s; 
+            border-radius: 0.75rem;
+            padding: 0.8rem 1.25rem; /* 增加内边距, 让按钮更饱满 */
+            font-size: 1.125rem; /* 字体放大到 1.125rem (text-lg) */
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            flex-shrink: 0; /* 默认不收缩，确保文字完整显示 */
+            background-color: #f0f4f8; 
+            color: #4338ca; 
+            border-bottom: 3px solid transparent; 
+            margin-right: 0.75rem; /* 增加按钮间距 */
+            margin-bottom: 0.75rem; /* 增加换行时的垂直间距 */
+        }
+        .tab-button svg {
+            color: #4338ca; /* Indigo-700 Icon color */
+            transition: color 0.3s;
+            margin-right: 0.25rem; /* 调整图标和文字的间距 */
+        }
+
+        /* Hover State for inactive buttons */
+        .tab-button:not(.active):hover {
+            color: #1d3a99; 
+            border-bottom-color: #93c5fd; 
+            background-color: #eef2ff; 
+        }
+        
+        /* Active State: 粗且有颜色的下划线 */
+        .tab-button.active { 
+            color: #1d3a99; 
+            border-bottom-color: #4338ca; 
+            background-color: #eef2ff; 
+        }
+
+        /* D1 Metric Card Styling: 主次颠倒 */
+        .d1-metric-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between; 
+            padding: 1.5rem;
+            border-radius: 1.25rem;
+            background-color: white;
+            box-shadow: 0 6px 15px -3px rgb(0 0 0 / 0.08), 0 3px 6px -4px rgb(0 0 0 / 0.03); 
+            transition: all 0.3s;
+            border-left: 6px solid; 
+        }
+        .d1-metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px -5px rgb(0 0 0 / 0.1);
+        }
+        /* 调整为一行显示但保持视觉主次 */
+        .d1-metric-card .main-value {
+            font-size: 3.5rem; /* 更大数字 (金额) */
+            font-weight: 800; 
+            line-height: 1;
+            display: flex;
+            align-items: baseline;
+        }
+        .d1-metric-card .main-value .percentage {
+            font-size: 2rem; /* 辅助百分比 */
+            font-weight: 700;
+            margin-left: 0.5rem;
+            line-height: 1;
+        }
+        .d1-metric-card .label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #6b7280; 
+            margin-bottom: 0.25rem;
+        }
+
+        /* Action Box Styling */
+        .action-box { 
+            background-color: #fffbeb; 
+            border: 2px solid #f59e0b; 
+            border-radius: 1.5rem; 
+            box-shadow: 0 10px 20px -5px rgb(245 158 11 / 0.15);
+        }
+        
+        /* D6 Decay Styling */
+        .decay-text {
+            display: flex;
+            align-items: center;
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #dc2626;
+            margin-top: 0.5rem;
+        }
+        .decay-text svg { margin-right: 0.25rem; }
+
+        .chart-container { position: relative; width: 100%; max-width: 700px; margin: 0 auto; height: 320px; }
+        @media (max-width: 640px) { .chart-container { height: 280px; } }
+    </style>
+</head>
+<body class="text-gray-900">
+
+    
+
+<script>
+        // Lucide-style SVG Icons
+        const icons = {
+            FileText: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 inline-block"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>`,
+            Film: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 inline-block"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="2" y1="17" x2="7" y2="17"/></svg>`,
+            Search: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 inline-block"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+            Package: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 inline-block"><path d="M12.89 2.54l-5.78 3.32A2 2 0 0 0 6 7.66v8.68a2 2 0 0 0 1.11 1.79l5.78 3.32a2 2 0 0 0 1.78 0l5.78-3.32A2 2 0 0 0 22 16.34V7.66a2 2 0 0 0-1.11-1.79l-5.78-3.32a2 2 0 0 0-1.78 0z"/><path d="M12 22V12h9"/></svg>`,
+            Users: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 inline-block"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+            Monitor: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 inline-block"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
+            Rocket: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 inline-block"><path d="M4.5 16.5c-1.5 1.5-.7 2.9-1.5 3.5s-.8 1.4-1.2 1.7c-1.3 1.3 0 2.2 2.2 0l7.3-7.3c-.6-1.5-2-2.3-3.5-1.5s-1.4 0-1.7 1.2c-.3-.3-.6-.6-1.5-1.5"/><path d="M12.8 19.3l-5.3-5.3"/><path d="M9 13l4.5-4.5"/><path d="M13.5 17.5l-4-4"/><path d="M10 10l5.5-5.5"/><path d="M17 19l4-4"/><path d="M22 17l-4-4"/></svg>`,
+            TrendingDown: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>`,
+            TrendingUp: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`
+        };
+    </script>
+
+    
+<!-- 标题栏：底色匹配 body，不固定 -->
+<header class="header-bg-match shadow-none p-4 border-b-4 border-indigo-600">
+        <div class="container mx-auto flex flex-wrap items-center justify-between">
+            <h1 class="text-3xl font-extrabold text-slate-800 flex items-center">
+                <span class="text-4xl mr-3">🍲</span> 小肥大排档门店 - 10月数据分析交互看板
+            </h1>
+        </div>
+    </header>
+
+    
+
+<main class="container mx-auto p-4 md:p-8">
+        
+        <!-- 导航栏容器: 使用自定义 CSS 实现响应式换行和不滚动 -->
+        <div class="tab-container"> 
+            
+            <!-- I. 整体经营数据分析 -->
+            <button class="tab-button active" data-tab="tab-d1">
+                <span class="tab-icon-placeholder" data-icon="FileText"></span> I. 整体经营数据分析
+            </button>
+            
+            <!-- II. 流量曝光数据分析 -->
+            <button class="tab-button" data-tab="tab-d2">
+                <span class="tab-icon-placeholder" data-icon="Film"></span> II. 流量曝光数据分析
+            </button>
+            
+            <!-- III. 搜索曝光与搜索词 -->
+            <button class="tab-button" data-tab="tab-d3">
+                <span class="tab-icon-placeholder" data-icon="Search"></span> III. 搜索曝光与搜索词
+            </button>
+            
+            <!-- IV. 成交数据结构 -->
+            <button class="tab-button" data-tab="tab-d4">
+                <span class="tab-icon-placeholder" data-icon="Package"></span> IV. 成交数据结构
+            </button>
+            
+            <!-- V. 短视频/直播团购 -->
+            <button class="tab-button" data-tab="tab-d5">
+                <span class="tab-icon-placeholder" data-icon="Users"></span> V. 短视频/直播团购
+            </button>
+            
+            <!-- VI. 抖音号数据 -->
+            <button class="tab-button" data-tab="tab-d6">
+                <span class="tab-icon-placeholder" data-icon="Monitor"></span> VI. 抖音号数据
+            </button>
+            
+            <!-- VII. 11月目标规划 -->
+            <button class="tab-button" data-tab="tab-d7">
+                <span class="tab-icon-placeholder" data-icon="Rocket"></span> VII. 11月目标规划
+            </button>
+        </div>
+
+        
+<!-- 
+******************************************************************
+* Tab 1: 整体经营
+******************************************************************
+-->
+<div id="tab-d1" class="tab-content">
+            <h2 class="text-3xl font-extrabold mb-6 text-blue-700 border-l-4 border-blue-500 pl-4">维度 I. 整体经营数据分析</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="d1-metric-card border-l-indigo-600">
+                    <div>
+                        <p class="label">总成交额 (GMV)</p>
+                        <p class="main-value text-indigo-700">
+                            ¥ 7.6万
+                        </p>
+                    </div>
+                    <div class="flex items-center text-indigo-500">
+                        <span class="text-3xl">💰</span>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-amber-600">
+                    <div>
+                        <p class="label">总核销 / 核销率</p>
+                        <p class="main-value text-amber-700">
+                            ¥ 2.1万
+                            <span class="percentage text-amber-600 ml-3">/ 27.6%</span>
+                        </p>
+                    </div>
+                    <div class="flex items-center text-amber-500">
+                        <span class="text-3xl">✅</span>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-red-600">
+                    <div>
+                        <p class="label">总退款 / 退款率</p>
+                        <p class="main-value text-red-700">
+                            ¥ 1.1万
+                            <span class="percentage text-red-600 ml-3">/ 14.5%</span>
+                        </p>
+                    </div>
+                    <div class="flex items-center text-red-500">
+                        <span class="text-3xl">↩️</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-6 mb-8">
+                <h3 class="text-xl font-bold mb-4 text-slate-800 border-b pb-2">成交渠道分解 (GMV 占比)</h3>
+                <p class="text-base text-slate-600 mb-4">搜索成交占比: <span class="font-bold text-emerald-600">20%</span> | 内容成交占比: <span class="font-bold text-emerald-600">65.8%</span> (视频64% + 直播1.8%)</p>
+                <div class="chart-container">
+                    <canvas id="d1Chart"></canvas>
+                </div>
+            </div>
+
+            
+<div class="action-box p-6">
+                <h3 class="text-2xl font-bold text-amber-800 flex items-center mb-4">
+                    <span class="mr-2 text-3xl">🎯</span> 核心诊断与落地：经营健康
+                </h3>
+                <div class="space-y-4">
+                    <p class="font-medium text-amber-800 text-lg border-b border-amber-300 pb-2">【核心问题】 成交和核销的“倒挂”。 成交额7.6万，核销才2.1万。这说明我们现有的团购套餐或者视频内容，激发了“囤货欲”，但没有激发“到店欲”。（退款率14.5%，非常健康）</p>
+                    <h4 class="font-bold text-amber-800 text-xl">【落地动作1：提升核销率（重点）】</h4>
+                    <ul class="list-disc pl-5 text-gray-700 space-y-2">
+                        <li>优化套餐： 立即检查当前团购套餐的有效期。如果有效期过长（如60-90天），用户会“囤而不核”。建议11月推的套餐，尤其是直播间套餐，缩短有效期（如15-30天），或设置“7天内有效”的引流品。</li>
+                        <li>到店核销礼： 针对“已购买未核销”的用户（DOU+可定向投放），推出到店核销额外福利，比如“凭10月订单核销，加送一份小吃/饮品”。</li>
+                        <li>客服催核： 通过私信或粉丝群，在周末用餐高峰前，提醒已购用户“您的XX套餐即将到期/天冷了，快来吃顿热乎的”。</li>
+                    </ul>
+                    <h4 class="font-bold text-amber-800 text-xl">【落地动作2：平衡成交结构】</h4>
+                     <ul class="list-disc pl-5 text-gray-700 space-y-2">
+                         <li>视频占比(64%)过高，直播(1.76%)占比过低。这不健康。直播是用来“冲量”和“清库存”的利器。11月必须加大直播投入（详见第五部分）。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        
+<!-- 
+******************************************************************
+* Tab 2: 流量曝光
+******************************************************************
+-->
+<div id="tab-d2" class="tab-content hidden">
+            <h2 class="text-3xl font-extrabold mb-6 text-blue-700 border-l-4 border-blue-500 pl-4">维度 II. 流量曝光数据分析</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="card p-4 col-span-4 bg-indigo-50 border border-indigo-200">
+                    <p class="text-sm font-medium text-indigo-700">门店整体曝光次数</p>
+                    <p class="text-5xl font-extrabold text-indigo-700 mt-1">320,000
+                        <span class="text-sm font-normal text-indigo-600 ml-2">(曝光次数为商家各承接体裁在推荐分享场景、抖音搜索场景和团购商城场景下入口的曝光总和)</span>
+                    </p>
+                </div>
+                <div class="card p-4 col-span-2 bg-amber-50 border border-amber-200">
+                    <p class="text-sm font-medium text-amber-700">平台推荐曝光 (高曝光, 中转化)</p>
+                    <p class="text-3xl font-bold text-amber-800 mt-1">26万 <span class="text-lg ml-2 text-slate-600">(成交 ¥50,000)</span></p>
+                    <p class="text-xs text-amber-600 mt-1">(通过推荐分享入口商家相关直播间曝光次数+短视频观看次数+获客卡曝光次数汇总)</p>
+                </div>
+                <div class="card p-4 bg-green-50 border border-green-200">
+                    <p class="text-sm font-medium text-green-700">平台搜索曝光 (低曝光, 高转化)</p>
+                    <p class="text-3xl font-bold text-green-800 mt-1">2万 <span class="text-lg ml-2 text-slate-600">(成交 ¥15,200)</span></p>
+                    <p class="text-xs text-green-600 mt-1">(用户通过抖音搜索栏找到您的商品或门店（分种草和非种草两个板块）)</p>
+                </div>
+                <div class="card p-4 bg-yellow-50 border border-yellow-200">
+                    <p class="text-sm font-medium text-yellow-700">团购商城曝光 (中曝光, 中转化)</p>
+                    <p class="text-3xl font-bold text-yellow-800 mt-1">3.2万 <span class="text-lg ml-2 text-slate-600">(成交 ¥8,000)</span></p>
+                    <p class="text-xs text-yellow-600 mt-1">(用户在浏览团购或电商货架时看到您的商品或门店（团购页搜索/商城页搜索/团购feeds/电商feeds）)</p>
+                </div>
+            </div>
+
+            <div class="card p-6 mb-8">
+                <h3 class="text-xl font-bold mb-4 text-slate-800 border-b pb-2">流量渠道效率对比 (曝光量 vs. 成交额)</h3>
+                <div class="chart-container">
+                    <canvas id="d2Chart"></canvas>
+                </div>
+            </div>
+
+            
+<div class="action-box p-6">
+                <h3 class="text-2xl font-bold text-amber-800 flex items-center mb-4">
+                    <span class="mr-2 text-3xl">🎯</span> 核心诊断与落地：流量结构重构
+                </h3>
+                <div class="space-y-4">
+                    <p class="font-medium text-amber-800 text-lg border-b border-amber-300 pb-2">【核心诊断】 我们来算一笔账（GPM - 千次曝光成交额）：<br>
+                        推荐GPM = 50000 / 260000 * 1000 = 192元 <br>
+                        搜索GPM = 15200 / 20000 * 1000 = 760元 <br>
+                        商城GPM = 8000 / 32000 * 1000 = 250元
+                    </p>
+                    <p class="font-medium text-red-700 text-lg border-b border-red-300 pb-2">【结论】 我们的“搜索”流量价值（GPM 760）是“推荐”流量（GPM 192）的近4倍！但搜索曝光量（2万）仅是推荐（26万）的零头。</p>
+
+                    <h4 class="font-bold text-amber-800 text-xl">【落地动作1：主攻搜索流量】</h4>
+                    <ul class="list-disc pl-5 text-gray-700 space-y-2">
+                        <li>11月的核心策略应该是“保持推荐，猛攻搜索”。我们必须把这个GPM高达760的“金矿”挖出来。</li>
+                        <li>动作： 优化门店POI（地图点）信息，确保地址、营业时间、联系方式100%准确。</li>
+                    </ul>
+                     <h4 class="font-bold text-amber-800 text-xl">【落地动作2：付费撬动搜索】</h4>
+                    <ul class="list-disc pl-5 text-gray-700 space-y-2">
+                        <li>既然搜索转化奇高，DOU+（豆荚）的投放策略要调整。不要只投“视频加热”，要开始投“搜索优化”。</li>
+                        <li>动作： 11月DOU+预算，分出30%投给“搜索词”，就投第三部分里的“海丰美食”、“大排档”等词，把搜索曝光从2万提升到3.5万以上。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        
+<!-- 
+******************************************************************
+* Tab 3: 搜索曝光
+******************************************************************
+-->
+<div id="tab-d3" class="tab-content hidden">
+            <h2 class="text-3xl font-extrabold mb-6 text-blue-700 border-l-4 border-blue-500 pl-4">维度 III. 搜索曝光与搜索词</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="d1-metric-card border-l-blue-500">
+                    <div>
+                        <p class="label">搜索曝光次数</p>
+                        <p class="main-value text-blue-700">2.34万</p>
+                        <p class="text-xs font-medium text-blue-600 mt-1">(包括搜索结果卡、直播、视频等各类体裁形式)</p>
+                    </div>
+                    <div class="flex items-center text-blue-500">
+                        <span class="text-3xl">🔍</span>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-blue-500">
+                    <div>
+                        <p class="label">搜索曝光人数</p>
+                        <p class="main-value text-blue-700">1.28万</p>
+                        <p class="text-xs font-medium text-blue-600 mt-1">(在搜索后浏览了本商家相关搜索结果的人数)</p>
+                    </div>
+                    <div class="flex items-center text-blue-500">
+                        <span class="text-3xl">👤</span>
+                    </div>
+                </div>
+                 <div class="d1-metric-card border-l-indigo-500 bg-indigo-50">
+                    <div>
+                        <p class="label">主要竞品：锁定对标</p>
+                        <p class="main-value text-indigo-800">山外有山湘里</p>
+                    </div>
+                    <div class="flex items-center text-indigo-300">
+                        <span class="text-3xl">⚔️</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="card p-6 border-l-4 border-blue-500">
+                    <h3 class="text-xl font-bold mb-4 text-blue-700">Top5 精准搜索词 (品牌基本盘)</h3>
+                    <ul id="fineSearchList" class="list-disc pl-5 space-y-2 text-slate-700"></ul>
+                    <p class="text-xs text-slate-500 mt-3 border-t pt-2">诊断：精搜索词中出现了竞争对手“山外有山湘里”。这是“截流”的好机会！</p>
+                </div>
+                <div class="card p-6 border-l-4 border-red-500">
+                    <h3 class="text-xl font-bold mb-4 text-red-700">Top5 泛搜索词 (流量主战场)</h3>
+                    <ul id="broadSearchList" class="list-disc pl-5 space-y-2 text-slate-700"></ul>
+                    <p class="text-xs text-slate-500 mt-3 border-t pt-2">诊断：泛搜索词（如“海丰美食”）和商圈词（“天虹”）是我们的主战场，必须用内容承接。</p>
+                </div>
+            </div>
+
+            
+<div class="action-box p-6">
+                <h3 class="text-2xl font-bold text-amber-800 flex items-center mb-4">
+                    <span class="mr-2 text-3xl">🎯</span> 核心诊断与落地：搜索防御与进攻
+                </h3>
+                <div class="space-y-4">
+                    <h4 class="font-bold text-amber-800 text-xl">【落地动作1：SEO内容矩阵（视频）】：</h4>
+                    <ul class="list-disc pl-5 text-gray-700 space-y-1">
+                        <li>11月要拍的4-6条视频，选题必须围绕这些词。</li>
+                        <li>选题1（蹭竞对）： “在海丰，吃腻了湘X（山外有山），不如来试试这家锅气十足的广式大排档！” （利用“湘里”和“山外有山”截流）</li>
+                        <li>选题2（占商圈）： “天虹/品乐汇附近的美食荒漠？不存在的！这家大排档……” （利用“天虹”和“品乐汇”）</li>
+                        <li>选题3（占泛词）： “海丰美食推荐榜Top1，本地人带你吃……” （打“海丰美食”这个词）</li>
+                        <li>要求： 视频的标题、文案、话题（#）必须包含上述关键词。</li>
+                    </ul>
+                    <h4 class="font-bold text-amber-800 text-xl">【落地动作2：优化POI套餐标题】：</h4>
+                    <ul class="list-disc pl-5 text-gray-700 space-y-1">
+                        <li>修改我们团购套餐的标题，加入关键词。</li>
+                        <li>例： 原标题：“168元双人套餐”。</li>
+                        <li>优化后： “【海丰美食推荐】小肥广式大排档·锅气啫啫煲双人餐”。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        
+<!-- 
+******************************************************************
+* Tab 4: 成交数据结构
+******************************************************************
+-->
+<div id="tab-d4" class="tab-content hidden">
+            <h2 class="text-3xl font-extrabold mb-6 text-blue-700 border-l-4 border-blue-500 pl-4">维度 IV. 成交数据结构分析</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="card p-6">
+                    <h3 class="text-xl font-bold mb-4 text-slate-800 border-b pb-2">成交主要渠道占比 (货架 vs. 内容)</h3>
+                    <div class="chart-container">
+                        <canvas id="d4Chart"></canvas>
+                    </div>
+                    <p class="text-base text-slate-700 mt-4 font-semibold text-center bg-gray-50 p-2 rounded">诊断：内容(视频/直播)成交占比 <span class="font-bold text-amber-500">65.8%</span>，搜索/货架占比 <span class="font-bold text-green-600">20%</span>。目前是一家“内容依赖型”门店。</p>
+                </div>
+                <div class="card p-6 flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-xl font-bold mb-4 text-slate-800 border-b pb-2">成交体裁渠道明细</h3>
+                        <ul class="list-disc pl-5 space-y-3 text-slate-700 text-lg">
+                            <li class="font-bold text-amber-600">视频： 64%</li>
+                            <li class="font-bold text-emerald-600">搜索卡： 16%</li>
+                            <li class="text-slate-800">其他： 11%</li>
+                            <li class="font-bold text-red-600">直播： 1.76% (过低)</li>
+                        </ul>
+                        <h3 class="text-xl font-bold mt-4 mb-4 text-slate-800 border-b pb-2">成交来源渠道明细</h3>
+                        <ul class="list-disc pl-5 space-y-3 text-slate-700 text-lg">
+                            <li class="font-bold text-amber-600">平台推荐： 67%</li>
+                            <li class="font-bold text-emerald-600">抖音搜索： 20%</li>
+                            <li class="text-slate-800">猜你喜欢： 5%</li>
+                             <li class="text-slate-800">团购频道： 3.37%</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-6 mb-8">
+                <h3 class="text-xl font-bold mb-4 text-slate-800 border-b pb-2">核销结构分析 (重点)</h3>
+                <ul class="list-disc pl-5 space-y-3 text-slate-700 text-lg">
+                    <li>核销体裁： 搜索(47%)、短视频(32%)、直播(1.8%)、其他(14%)</li>
+                    <li>核销来源： 抖音搜索(55%)、平台推荐(25%)、猜你喜欢(6.6%)、团购频道(7.54%)</li>
+                </ul>
+            </div>
+
+            
+<div class="action-box p-6">
+                <h3 class="text-2xl font-bold text-amber-800 flex items-center mb-4">
+                    <span class="mr-2 text-3xl">🎯</span> 核心诊断与落地：重塑成交结构
+                </h3>
+                <div class="space-y-4">
+                    <p class="font-medium text-red-700 text-lg border-b border-gray-300 pb-2">【核心矛盾点】 这是10月数据里最核心、也最矛盾的地方。</p>
+                    <p class="font-medium text-red-700 text-lg border-b border-gray-300 pb-2">
+                        成交（买）： 64-67%来自“视频”和“推荐”。（用户刷视频，冲动消费）<br>
+                        核销（吃）： 47-55%来自“搜索”。（用户想吃饭，主动搜索）
+                    </p>
+                    <p class="font-medium text-gray-800 text-lg border-b border-gray-300 pb-2">【解读】 我们通过视频（推荐流）卖出去了大量团购，但这些冲动消费的人并没有来吃。而真正来吃的，是那些主动“搜索”我们的人。</p>
+                    
+                    <h4 class="font-bold text-amber-800 text-xl">【落地动作1：优化视频内容（解决“卖了不来”）】：</h4>
+                    <ul class="list-disc pl-5 text-gray-700 space-y-2">
+                        <li>10月的视频，我猜大多是“炫技流”、“高颜值”，拍得很好看，所以卖得好。</li>
+                        <li>11月，视频内容要从“好看”转向“氛围”。不要只拍菜，要拍“烟火气”、拍“满座”、拍“排队”、拍“食客真实好评”。</li>
+                        <li>核心： 视频要给用户一个“我今晚就想去”的理由，而不是“我先囤个券”的理由。</li>
+                    </ul>
+                     <h4 class="font-bold text-amber-800 text-xl">【落地动作2：放大搜索核销（利用“来了就买”）】：</h4>
+                     <ul class="list-disc pl-5 text-gray-700 space-y-2">
+                        <li>既然搜索核销率高，我们要“逼”用户去搜索。</li>
+                        <li>动作： 视频内容里不要把套餐讲得太明白，引导用户“搜一搜”。</li>
+                        <li>话术： “我们店里现在有个巨划算的套餐，你们去搜‘小肥’就知道了！”</li>
+                        <li>目的： 把“推荐流”用户，洗成“搜索流”用户，提高后续的核销率。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        
+<!-- 
+******************************************************************
+* Tab 5: 短视频/直播
+******************************************************************
+-->
+        <div id="tab-d5" class="tab-content hidden">
+            <h2 class="text-3xl font-extrabold mb-6 text-blue-700 border-l-4 border-blue-500 pl-4">维度 V. 短视频/直播团购</h2>
+            
+            <h3 class="text-2xl font-bold mt-6 mb-4 text-slate-700 border-b pb-2">十月短视频团购</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="d1-metric-card border-l-indigo-600">
+                    <div>
+                        <p class="label">视频总成交金额</p>
+                        <p class="main-value text-indigo-700">¥ 38,500</p>
+                        <p class="text-xs text-indigo-600 mt-1">(33600直接成交 + 4840在14天内归因成交)</p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-blue-500">
+                    <div>
+                        <p class="label">流量占比：自然流</p>
+                        <p class="main-value text-blue-700">90<span class="text-2xl">%</span></p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-blue-500">
+                    <div>
+                        <p class="label">流量占比：搜索</p>
+                        <p class="main-value text-blue-700">4.55<span class="text-2xl">%</span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="action-box p-6 mb-8">
+                 <h4 class="font-bold text-amber-800 text-xl">【短视频诊断与落地】</h4>
+                 <p class="font-medium text-amber-800 text-lg border-b border-amber-300 pb-2">【诊断】 自然流90%说明我们的内容质量（或运气）不错，踩中了算法。3.85万的GMV占了总GMV的50%，视频是绝对主力。</p>
+                 <ul class="list-disc pl-5 text-gray-700 space-y-2 mt-2">
+                    <li>落地动作1： 保持（或略微提升）内容质量。我们（按要求）每月发4-6条，必须保证“发一爆一”（小爆）。</li>
+                    <li>落地动作2： 既然自然流高，说明内容有“网感”。DOU+可以在视频发布2小时后，选择“投达人相似”或“智能推荐”，助推一把，让90%的自然流变成95%。</li>
+                 </ul>
+            </div>
+
+
+            <h3 class="text-2xl font-bold mt-10 mb-4 text-slate-700 border-b pb-2">十月直播团购</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="d1-metric-card border-l-red-600">
+                    <div>
+                        <p class="label">总直播场次</p>
+                        <p class="main-value text-red-700">1<span class="text-2xl">场</span></p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-red-600">
+                    <div>
+                        <p class="label">总观看人数</p>
+                        <p class="main-value text-red-700">671</p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-indigo-600">
+                    <div>
+                        <p class="label">总直播间成交</p>
+                        <p class="main-value text-indigo-700">¥ 1,333</p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-green-500">
+                    <div>
+                        <p class="label">UV价值 (高)</p>
+                        <p class="main-value text-green-700">1.99<span class="text-2xl">元</span></p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-red-600 bg-red-50 col-span-2">
+                    <div>
+                        <p class="label text-red-700">核销金额</p>
+                        <p class="main-value text-red-700">¥ 360</p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-red-600 bg-red-50 col-span-2">
+                    <div>
+                        <p class="label text-red-700">直播间核销率 (低)</p>
+                        <p class="main-value text-red-700">27<span class="text-2xl">%</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-box p-6 mb-8">
+                 <h4 class="font-bold text-amber-800 text-xl">【直播诊断与落地】</h4>
+                 <p class="font-medium text-amber-800 text-lg border-b border-amber-300 pb-2">【诊断】 这是10月最大的“短板”，但也是11月最大的“增长点”。</p>
+                 <p class="font-medium text-green-700 text-lg border-b border-green-300 pb-2">【亮点分析】 UV价值 1.99！对于餐饮大排档，这个UV值非常高了！说明只要人进来了，转化意愿很强。</p>
+                 <p class="font-medium text-red-700 text-lg border-b border-red-300 pb-2">【问题】 只播了1场，总共才671人看。这等于“有宝刀，但不拔刀”。核销率27%（和整体持平），说明直播间卖的套餐，依然没有解决“到店核销”的问题。</p>
+                 
+                 <ul class="list-disc pl-5 text-gray-700 space-y-2 mt-2">
+                    <li>落地动作1：拉高直播频次（SOP核心）：10月只播1场，太浪费了。11月必须严格执行6-8场的直播计划。建议每周1-2场，固定时间（如每周三、周五晚7点，饭点高峰）开播。</li>
+                    <li>落地动作2：优化直播间套餐（提升核销）：必须设计“直播间专供”、“限时核销”的套餐。例如：9.9元引流品（限3天内使用） + 188元主力套餐 + 399元利润套餐。</li>
+                    <li>落地动作3：解决直播间流量（提升观看）：11月目标是场均观看破3000。动作：视频预热 + DOU+加热 + 门店引流。</li>
+                 </ul>
+            </div>
+
+        </div>
+
+        
+<!-- 
+******************************************************************
+* Tab 6: 抖音号数据
+******************************************************************
+-->
+        <div id="tab-d6" class="tab-content hidden">
+            <h2 class="text-3xl font-extrabold mb-6 text-blue-700 border-l-4 border-blue-500 pl-4">维度 VI. 抖音号数据</h2>
+            
+            <h3 class="text-2xl font-bold mt-6 mb-4 text-red-700 border-b pb-2">关键衰退指标 (数据缺失)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="d1-metric-card border-l-red-600 bg-red-50">
+                    <div>
+                        <p class="label text-red-700">作品条数 (月发布)</p>
+                        <p class="main-value text-red-700">0<span class="text-2xl">条</span></p>
+                        <p class="decay-text">
+                            N/A
+                        </p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-red-600 bg-red-50">
+                    <div>
+                        <p class="label text-red-700">平均 5s 完播率</p>
+                        <p class="main-value text-red-700">0<span class="text-2xl">%</span></p>
+                        <p class="decay-text">
+                           N/A
+                        </p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-red-600 bg-red-50">
+                    <div>
+                        <p class="label text-red-700">平均 2s 跳出率</p>
+                        <p class="main-value text-red-700">0<span class="text-2xl">%</span></p>
+                        <p class="decay-text">
+                           N/A
+                        </p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-red-600 bg-red-50">
+                    <div>
+                        <p class="label text-red-700">平均播放时长</p>
+                        <p class="main-value text-red-700">0<span class="text-2xl">秒</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="text-2xl font-bold mt-8 mb-4 text-blue-700 border-b pb-2">作品互动与流量表现 (数据缺失)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="d1-metric-card border-l-blue-500">
+                    <div>
+                        <p class="label">作品总播放</p>
+                        <p class="main-value text-blue-700">0</p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-blue-500">
+                    <div>
+                        <p class="label">作品平均播放量</p>
+                        <p class="main-value text-blue-700">0</p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-green-500">
+                    <div>
+                        <p class="label">作品平均点赞数</p>
+                        <p class="main-value text-green-700">0</p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-green-500">
+                    <div>
+                        <p class="label">作品平均分享量</p>
+                        <p class="main-value text-green-700">0</p>
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-red-500 bg-red-50 col-span-1">
+                    <div>
+                        <p class="label text-red-700">作品平均评论量 (灾难性)</p>
+                        <p class="main-value text-red-700">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="text-2xl font-bold mt-8 mb-4 text-purple-700 border-b pb-2">账号粉丝人群结构 (数据缺失)</h3>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <div class="card p-6">
+                     <h3 class="text-lg font-bold mb-2 text-purple-700 text-center">地域分布</h3>
+                     <div class="chart-container" style="height: 220px; max-width: 250px;">
+                         <canvas id="d6RegionChart"></canvas>
+                     </div>
+                </div>
+                <div class="card p-6">
+                     <h3 class="text-lg font-bold mb-2 text-purple-700 text-center">性别比例</h3>
+                     <div class="chart-container" style="height: 220px; max-width: 250px;">
+                         <canvas id="d6GenderChart"></canvas>
+                     </div>
+                </div>
+                <div class="card p-6">
+                     <h3 class="text-lg font-bold mb-2 text-purple-700 text-center">年龄段分布</h3>
+                     <div class="chart-container" style="height: 220px; max-width: 250px;">
+                         <canvas id="d6AgeChart"></canvas>
+                     </div>
+                </div>
+            </div>
+
+            
+<div class="action-box p-6">
+                <h3 class="text-2xl font-bold text-amber-800 flex items-center mb-4">
+                    <span class="mr-2 text-3xl">🎯</span> 核心诊断与落地：内容留存SOP
+                </h3>
+                <div class="space-y-4">
+                    <p class="font-medium text-red-800 text-lg border-b border-red-300 pb-2">【警告】 这部分数据为0，这是操盘的大忌。</p>
+                    <p class="font-medium text-red-800 text-lg border-b border-red-300 pb-2">【矛盾点】 第五部分显示“视频总成交38500元”，但这部分显示“作品条数0”。这说明数据统计有误，或者没有拉取到“商家号”数据。</p>
+                    
+                    <h4 class="font-bold text-amber-800 text-xl">【落地动作1】：</h4>
+                    <ul class="list-disc pl-5 text-gray-700 space-y-1">
+                        <li>立即拉取后台数据。我们必须知道完播率、跳出率，才能优化视频的“黄金3秒”。我们必须知道粉丝画像（年龄/性别），才能确定视频的“主角”和“风格”。</li>
+                    </ul>
+                    <h4 class="font-bold text-amber-800 text-xl">【落地动作2（基于现状的盲猜和执行）】：</h4>
+                    <ul class="list-disc pl-5 text-gray-700 space-y-1">
+                        <li>既然是“广式大排档”，目标客群大概率是 24-40岁，本地（海丰），男女均衡（或男性略多，偏好夜宵）。</li>
+                        <li>视频SOP： 11月严格执行4-6条视频。</li>
+                        <li>内容方向： 2条拍“氛围”（排队/满座/烟火气），2条拍“产品”（锅气/新鲜/性价比），2条拍“热点”（结合本地热点或搜索词）。</li>
+                        <li>数据目标： 5秒完播率 > 40%，平均播放时长 > 15秒。如果达不到，就要优化视频开头（Hook）。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        
+<!-- 
+******************************************************************
+* Tab 7: 11月目标 (已按要求修改)
+******************************************************************
+-->
+<div id="tab-d7" class="tab-content hidden">
+            <h2 class="text-3xl font-extrabold mb-6 text-blue-700 border-l-4 border-blue-500 pl-4">维度 VII. 11月目标规划</h2>
+            
+            <!-- 
+                变更 1: grid-cols-2 md:grid-cols-4  -> grid-cols-1 md:grid-cols-3
+                变更 2: 移除 GMV 目标卡
+                变更 3: 修改 核销目标 金额
+                变更 4: 移除所有卡片 (xxx) 内容
+             -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                
+                <div class="d1-metric-card border-l-emerald-600 bg-emerald-50 text-center">
+                    <div>
+                        <p class="label text-emerald-700">核销目标</p>
+                        <p class="main-value text-emerald-700">3.5<span class="text-2xl">万</span></p>
+                        <!-- (vs 2.1万) 已移除 -->
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-blue-600 bg-blue-50 text-center">
+                    <div>
+                        <p class="label text-blue-700">核心指标：核销率</p>
+                        <p class="main-value text-blue-700">≥ 35<span class="text-2xl">%</span></p>
+                        <!-- (vs 27.6%) 已移除 -->
+                    </div>
+                </div>
+                <div class="d1-metric-card border-l-blue-600 bg-blue-50 text-center">
+                    <div>
+                        <p class="label text-blue-700">直播目标：场次</p>
+                        <p class="main-value text-blue-700">≥ 6<span class="text-2xl">场</span></p>
+                        <!-- (vs 1场) 已移除 -->
+                    </div>
+                </div>
+            </div>
+
+            
+<div class="action-box p-6">
+                <h3 class="text-2xl font-bold text-amber-800 flex items-center mb-4">
+                    <span class="mr-2 text-3xl">🏆</span> 11月整体行动纲领 (以内容突破结构)
+                </h3>
+                <div class="space-y-4">
+                    <p class="font-medium text-gray-800 text-lg border-b border-gray-300 pb-2">（基于10月7.6万GMV，2.1万核销的数据）</p>
+                    <h4 class="font-bold text-amber-800 text-xl">【GMV目标】： 11月总成交额（GMV）目标：90000元。</h4>
+                    <ul class="list-disc pl-5 text-gray-700 space-y-1">
+                        <li>拆解： 视频GMV 4万，直播GMV 2.5万（从1333提升），搜索GMV 2万，其他 0.5万。</li>
+                    </ul>
+                    <!-- 变更 5: 35000元 -> 3.5万 -->
+                    <h4 class="font-bold text-amber-800 text-xl">【核销目标】： 11月总核销金额目标：3.5万。</h4>
+                    <ul class="list-disc pl-5 text-gray-700 space-y-1">
+                        <li>拆解： 10月成交的7.6万，在11月至少核销1.5万。11月新成交的9万，当月核销2万。</li>
+                        <li>核心指标： 将总核销率从27.6%提升至35%以上。</li>
+                    </ul>
+                     <h4 class="font-bold text-amber-800 text-xl">【直播目标】：</h4>
+                    <ul class="list-disc pl-5 text-gray-700 space-y-1">
+                        <li>场次： 保证 6 场有效直播（每场>1.5小时）。</li>
+                        <li>UV价值： 保持 1.8 以上。</li>
+                        <li>场均成交： 突破 4000 元。</li>
+                    </ul>
+                    <h4 class="font-bold text-amber-800 text-xl">【搜索目标】：</h4>
+                    <ul class="list-disc pl-5 text-gray-700 space-y-1">
+                        <li>曝光： 平台搜索曝光次数从2万提升至 3.5万。</li>
+                        <li>GPM： 保持搜索GPM在 700 以上。</li>
+                    </ul>
+                     <h4 class="font-bold text-amber-800 text-xl">【内容目标】：</h4>
+                    <ul class="list-disc pl-5 text-gray-700 space-y-1">
+                        <li>发布 5 条短视频，围绕“搜索词”和“核销氛围”进行创作。</li>
+                        <li>必须获取并分析“完播率”数据，用于下次迭代。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </main>
+    
+    <script>
+        // Store data used for chart and list rendering
+        const storeData = {
+            // 维度一: 整体经营数据分析
+            D1: { gmv: 76000, verification: 21000, refund: 11000, search_txn: 20, content_txn: 65.76 }, // content_txn = 64 (video) + 1.76 (live)
+            // 维度二: 门店流量曝光数据分析 (曝光量 vs. 成交额)
+            D2: { recommend: { exposure: 260000, revenue: 50000 }, search: { exposure: 20000, revenue: 15200 }, mall: { exposure: 32000, revenue: 8000 } },
+            // 维度三: 门店搜索曝光与搜索词分析
+            D3: { fine_search: ['小肥广式大排档', '山外有山湘里', '品乐汇', '湘里', '大排档'], broad_search: ['海丰美食推荐', '海丰美食', '天虹美食团购', '美食', '美食附近抖音团购'] },
+            // 维度四: 门店成交数据结构分析 (成交体裁渠道: 搜索20%, 内容65.76%)
+            // D4 Chart uses D1's data
+            D4: { shelf_txn_pct: 20, content_txn_pct: 65.76 },
+            // 维度六: 抖音号数据 (数据为0)
+            D6: {
+                region: { guangdong: 0, other: 100 }, // Placeholder for 0 data
+                gender: { female: 0, male: 0 }, // Placeholder for 0 data
+                age: {
+                    labels: ['<23岁', '24-30岁', '31-40岁', '其他'],
+                    data: [0, 0, 0, 0] // 0 data
+                }
+            }
+        };
+
+        let chartInstances = {};
+        
+        // Helper function for formatting currency and exposure with unit
+        function formatValue(num, type) {
+            if (type === 'currency') {
+                if (num >= 10000) return '¥' + (num / 10000).toFixed(1) + '万';
+                return '¥' + num.toLocaleString('zh-CN');
+            }
+            if (type === 'exposure') {
+                if (num >= 10000) return (num / 10000).toFixed(1) + '万';
+                return num.toLocaleString('zh-CN');
+            }
+            return num;
+        }
+
+        // Tab 切换逻辑
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                button.classList.add('active');
+
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                const tabId = button.dataset.tab;
+                document.getElementById(tabId).classList.remove('hidden');
+
+                // Render charts (Lazy Load)
+                if (tabId === 'tab-d1') initD1Chart();
+                if (tabId === 'tab-d2') initD2Chart();
+                if (tabId === 'tab-d4') initD4Chart();
+                if (tabId === 'tab-d6') {
+                    initD6RegionChart();
+                    initD6GenderChart();
+                    initD6AgeChart();
+                }
+            });
+        });
+
+        // 图表初始化函数 (D1: 成交渠道分解)
+        function initD1Chart() {
+            if (chartInstances.d1) chartInstances.d1.destroy();
+            const ctx = document.getElementById('d1Chart').getContext('2d');
+            const other_txn = (100 - storeData.D1.search_txn - storeData.D1.content_txn).toFixed(1);
+            chartInstances.d1 = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [`搜索成交 (${storeData.D1.search_txn}%)`, `内容成交 (${storeData.D1.content_txn}%)`, `其他成交 (${other_txn}%)`],
+                    datasets: [{
+                        label: '成交占比 (%)',
+                        data: [storeData.D1.search_txn, storeData.D1.content_txn, other_txn],
+                        backgroundColor: ['#10b981', '#f59e0b', '#9ca3af'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => context.label + ' ' + context.parsed.y + '%' } } },
+                    scales: { y: { beginAtZero: true, max: 100, ticks: { callback: (value) => value + '%' } } }
+                }
+            });
+        }
+
+        // 图表初始化函数 (D2: 流量渠道效率对比 - 组合图表修复)
+        function initD2Chart() {
+            if (chartInstances.d2) chartInstances.d2.destroy();
+            const ctx = document.getElementById('d2Chart').getContext('2d');
+            
+            const labels = ['平台推荐', '平台搜索', '团购商城'];
+            const exposure = [storeData.D2.recommend.exposure, storeData.D2.search.exposure, storeData.D2.mall.exposure];
+            const revenue = [storeData.D2.recommend.revenue, storeData.D2.search.revenue, storeData.D2.mall.revenue];
+
+            chartInstances.d2 = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '曝光次数 (万)',
+                        data: exposure.map(val => val / 10000),
+                        backgroundColor: 'rgba(56, 189, 248, 0.8)',
+                        yAxisID: 'y',
+                        type: 'bar',
+                        borderRadius: 6
+                    }, {
+                        label: '成交金额 (元)',
+                        data: revenue,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                        yAxisID: 'y1',
+                        type: 'line',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 6,
+                        pointBackgroundColor: '#ef4444'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        tooltip: { 
+                            callbacks: { 
+                                label: (context) => context.dataset.label + ': ' + (context.datasetIndex === 0 
+                                    ? formatValue(context.parsed.y * 10000, 'exposure') 
+                                    : formatValue(context.parsed.y, 'currency')) 
+                            } 
+                        },
+                    },
+                    scales: {
+                        x: { stacked: false },
+                        y: { 
+                            position: 'left',
+                            title: { display: true, text: '曝光次数 (万)' },
+                            ticks: { callback: (value) => value + '万' }
+                        },
+                        y1: { 
+                            type: 'linear', 
+                            position: 'right', 
+                            title: { display: true, text: '成交金额 (元)' },
+                            grid: { drawOnChartArea: false },
+                            ticks: { callback: (value) => formatValue(value, 'currency') }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 图表初始化函数 (D4: 货架 vs. 内容)
+        // 注意：此图表使用D1的数据 (搜索20%, 内容65.8%)
+        function initD4Chart() {
+            if (chartInstances.d4) chartInstances.d4.destroy();
+            const ctx = document.getElementById('d4Chart').getContext('2d');
+            const other_pct = (100 - storeData.D4.shelf_txn_pct - storeData.D4.content_txn_pct).toFixed(1);
+            chartInstances.d4 = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: [`货架/搜索 (${storeData.D4.shelf_txn_pct}%)`, `内容成交 (${storeData.D4.content_txn_pct}%)`, `其他 (${other_pct}%)`],
+                    datasets: [{
+                        data: [storeData.D4.shelf_txn_pct, storeData.D4.content_txn_pct, other_pct],
+                        backgroundColor: ['#10b981', '#f59e0b', '#9ca3af'],
+                        hoverOffset: 12
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { boxWidth: 20, padding: 20 } }, 
+                        tooltip: { callbacks: { label: (context) => context.label + ' (' + context.parsed + '%)' } } 
+                    }
+                }
+            });
+        }
+
+        // 渲染搜索词列表 (D3)
+        function renderSearchLists() {
+            const renderList = (id, items) => {
+                const ul = document.getElementById(id);
+                ul.innerHTML = '';
+                items.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = "text-base font-medium";
+                    li.innerHTML = `👉 <span class="text-emerald-600">${item}</span>`;
+                    ul.appendChild(li);
+                });
+            };
+            renderList('fineSearchList', storeData.D3.fine_search);
+            renderList('broadSearchList', storeData.D3.broad_search);
+        }
+        
+        // 图表初始化函数 (D6: 地域分布)
+        function initD6RegionChart() {
+            if (chartInstances.d6Region) chartInstances.d6Region.destroy();
+            const ctx = document.getElementById('d6RegionChart').getContext('2d');
+            let data = [storeData.D6.region.guangdong, storeData.D6.region.other];
+            let labels = [`广东 (${storeData.D6.region.guangdong}%)`, `其他 (${storeData.D6.region.other}%)`];
+            
+            // Handle 0 data case
+            if (storeData.D6.region.guangdong === 0 && storeData.D6.region.other === 0) {
+                 data = [100];
+                 labels = ['数据缺失 (0%)'];
+            }
+
+            chartInstances.d6Region = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: ['#22c55e', '#a3a3a3'], // green-500, neutral-400
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } }
+                    }
+                }
+            });
+        }
+
+        // 图表初始化函数 (D6: 性别比例)
+        function initD6GenderChart() {
+            if (chartInstances.d6Gender) chartInstances.d6Gender.destroy();
+            const ctx = document.getElementById('d6GenderChart').getContext('2d');
+            let data = [storeData.D6.gender.female, storeData.D6.gender.male];
+            let labels = [`女 (${storeData.D6.gender.female}%)`, `男 (${storeData.D6.gender.male}%)`];
+
+            if (storeData.D6.gender.female === 0 && storeData.D6.gender.male === 0) {
+                 data = [100];
+                 labels = ['数据缺失 (0%)'];
+            }
+
+            chartInstances.d6Gender = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: ['#c084fc', '#6366f1'], // purple-400, indigo-500
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } }
+                    }
+                }
+            });
+        }
+
+        // 图表初始化函数 (D6: 年龄分布)
+        function initD6AgeChart() {
+            if (chartInstances.d6Age) chartInstances.d6Age.destroy();
+            const ctx = document.getElementById('d6AgeChart').getContext('2d');
+            let data = storeData.D6.age.data;
+            let labels = storeData.D6.age.labels.map((label, i) => `${label} (${storeData.D6.age.data[i]}%)`);
+
+            if (data.every(item => item === 0)) {
+                data = [100];
+                labels = ['数据缺失 (0%)'];
+            }
+
+            chartInstances.d6Age = new Chart(ctx, {
+                type: 'doughnut', 
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '年龄分布 (%)',
+                        data: data,
+                        backgroundColor: [
+                            '#a855f7', // purple-600
+                            '#6366f1', // indigo-500
+                            '#3b82f6', // blue-500
+                            '#14b8a6'  // teal-500
+                        ],
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { 
+                            position: 'bottom', 
+                            labels: { boxWidth: 12, padding: 10, font: { size: 10 } } // smaller font for legend
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Icon Setup Logic ---
+        function initializeIcons() {
+            // Replace placeholder spans with actual SVG icons
+            document.querySelectorAll('.tab-icon-placeholder').forEach(placeholder => {
+                const iconName = placeholder.dataset.icon;
+                if (icons[iconName]) {
+                    // Create a temporary div to parse the SVG string
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = icons[iconName];
+                    const svgElement = tempDiv.firstChild;
+                    placeholder.replaceWith(svgElement);
+                }
+            });
+        }
+
+
+        // 页面加载完成时初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeIcons(); // FIRST: Insert SVG icons
+            initD1Chart();     // THEN: Initialize default chart
+            renderSearchLists();
+            // Init D6 charts on load as well, in case D6 is the default tab (though D1 is)
+            initD6RegionChart();
+            initD6GenderChart();
+            initD6AgeChart();
+        });
+    </script>
+</body>
+</html>
