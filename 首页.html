@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>门店数据交互中心</title>
+    
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        /* 基础样式 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+            /* 背景色由 React 组件控制 */
+        }
+        /* 为渐变背景提供额外支持 */
+        .kpi-card-gradient-green { background-image: linear-gradient(to right top, #6ee7b7, #34d399, #10b981); }
+        .kpi-card-gradient-blue { background-image: linear-gradient(to right top, #93c5fd, #60a5fa, #3b82f6); }
+        .kpi-card-gradient-orange { background-image: linear-gradient(to right top, #fcd34d, #fbbf24, #f59e0b); }
+
+        /* SVG 背景图案样式 */
+        .svg-pattern-dollar {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='1' x2='12' y2='23'/%3E%3Cpath d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/%3E%3C/svg%3E");
+            background-repeat: repeat;
+            background-size: 80px 80px; /* 控制图标大小 */
+            opacity: 0.1; /* 透明度 */
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 0;
+        }
+        .svg-pattern-check {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M22 11.08V12a10 10 0 1 1-5.93-9.14'/%3E%3Cpolyline points='22 4 12 14.01 9 11.01'/%3E%3C/svg%3E");
+            background-repeat: repeat;
+            background-size: 80px 80px;
+            opacity: 0.1;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 0;
+        }
+        .svg-pattern-refresh {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8'/%3E%3Cpath d='M21 3v5h-5'/%3E%3Cpath d='M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16'/%3E%3Cpath d='M3 21v-5h5'/%3E%3C/svg%3E");
+            background-repeat: repeat;
+            background-size: 80px 80px;
+            opacity: 0.1;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 0;
+        }
+    </style>
+</head>
+<body>
+    
+    <!-- 1. React 挂载点 -->
+    <div id="root"></div>
+
+    <!-- 2. 引入 React 和 ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- 3. 引入 Babel (用于解析 JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- 4. 您的 React 应用代码 -->
+    <script type="text/babel">
+        // --- React 初始化 ---
+        const { useState, useEffect } = React;
+        
+        // --- 修复: 内联 SVG 图标组件 ---
+        // (这些是替代 lucide-react 的图标)
+        
+        // 1. DollarSign 图标
+        function IconDollarSign({ className, size = 24 }) {
+          return (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width={size}
+              height={size}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={className}
+            >
+              <line x1="12" y1="1" x2="12" y2="23" />
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          );
+        }
+
+        // 2. CheckCircle 图标
+        function IconCheckCircle({ className, size = 24 }) {
+          return (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width={size}
+              height={size}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={className}
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+          );
+        }
+
+        // 3. RefreshCw 图标
+        function IconRefreshCw({ className, size = 24 }) {
+          return (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width={size}
+              height={size}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={className}
+            >
+              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+              <path d="M3 21v-5h5" />
+            </svg>
+          );
+        }
+
+        // 4. ArrowLeft 图标
+        function IconArrowLeft({ size, className }) {
+          return (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width={size || 24}
+              height={size || 24}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={className}
+            >
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
+          );
+        }
+
+        // 5. Plus 图标
+        function IconPlus({ size, className }) {
+          return (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width={size || 24}
+              height={size || 24}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={className}
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          );
+        }
+
+
+        // --- 您的真实数据 ---
+        const MOCK_STORES = [
+          {
+            id: 'store_1',
+            name: 'FA运动拾光门店',
+            subtitle: '10月数据分析',
+            status: 'available',
+            icon: '🎮',
+            url: 'https://linkevin-luv.github.io/Kevin/fa-sport-oct.html',
+            salesAmount: 128000, 
+            verificationAmount: 85500, 
+            refundAmount: 60000, 
+          },
+          {
+            id: 'store_2',
+            name: '觅境门店',
+            subtitle: '10月数据分析',
+            status: 'available',
+            icon: '🏞️',
+            url: 'https://linkevin-luv.github.io/Kevin/mijing-sport-oct.html',
+            salesAmount: 115397, 
+            verificationAmount: 72664, 
+            refundAmount: 60409, 
+          },
+          {
+            id: 'store_3',
+            name: '觅密门店',
+            subtitle: '10月数据分析',
+            status: 'available',
+            icon: '🍲',
+            url: 'https://linkevin-luv.github.io/Kevin/mimi-sport-oct.html',
+            salesAmount: 13733, 
+            verificationAmount: 5078, 
+            refundAmount: 3939, 
+          },
+          {
+            id: 'store_4',
+            name: '小肥大排档门店',
+            subtitle: '10月数据分析',
+            status: 'available',
+            icon: '🍜',
+            url: 'https://linkevin-luv.github.io/Kevin/xiaofei-sport-oct.html',
+            salesAmount: 76000, 
+            verificationAmount: 21000, 
+            refundAmount: 11000, 
+          },
+          {
+            id: 'store_5',
+            name: '鱼焰门店',
+            subtitle: '10月数据分析',
+            status: 'available',
+            icon: '🐟',
+            url: 'https://linkevin-luv.github.io/Kevin/yuyan-sport-oct.html',
+            salesAmount: 124000, 
+            verificationAmount: 78000, 
+            refundAmount: 41000, 
+          },
+          {
+            id: 'store_6',
+            name: '焱炭门店',
+            subtitle: '10月数据分析',
+            status: 'available',
+            icon: '🔥',
+            url: 'https://linkevin-luv.github.io/Kevin/yantan-sport-oct.html',
+            salesAmount: 48378, 
+            verificationAmount: 31000, 
+            refundAmount: 6200, 
+          },
+        ];
+
+        // --- UI 升级: Header 组件 ---
+        // (已修复: 移除了 sticky, top-0, z-50)
+        function Header({ title }) {
+          return (
+            <header className="bg-slate-800 shadow-lg">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-center items-center h-16">
+                  <h1 className="text-2xl md:text-3xl font-bold text-white">
+                    {title}
+                  </h1>
+                </div>
+              </div>
+            </header>
+          );
+        }
+
+        // --- 核心组件 ---
+
+        /**
+         * 1. 门店看板中心 (概览页)
+         */
+        function DashboardCenter({ stores, onSelectStore, totalMetrics }) {
+          return (
+            <div className="min-h-screen bg-gray-100">
+              <Header title="门店数据交互中心" />
+              
+              <main className="p-4 md:p-8">
+                {/* 总体KPI卡片 (已更新: 显示金额) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                  <KpiCard
+                    title="10月总成交"
+                    value={`¥${(totalMetrics.totalSales / 10000).toFixed(2)}万`}
+                    subtitle="10月收支分析"
+                    gradientClass="kpi-card-gradient-green"
+                    icon={<IconDollarSign size={36} className="text-white" />}
+                    svgPatternClass="svg-pattern-dollar"
+                  />
+                  <KpiCard
+                    title="10月总核销"
+                    value={`¥${(totalMetrics.totalVerification / 10000).toFixed(2)}万`}
+                    subtitle="10月收支分析"
+                    gradientClass="kpi-card-gradient-blue"
+                    icon={<IconCheckCircle size={36} className="text-white" />}
+                    svgPatternClass="svg-pattern-check"
+                  />
+                  <KpiCard
+                    title="10月总退款"
+                    value={`¥${(totalMetrics.totalRefunds / 10000).toFixed(2)}万`}
+                    subtitle="10月收支分析"
+                    gradientClass="kpi-card-gradient-orange"
+                    icon={<IconRefreshCw size={36} className="text-white" />}
+                    svgPatternClass="svg-pattern-refresh"
+                  />
+                </div>
+
+                {/* 门店列表 */}
+                <div>
+                  <h2 className="text-2xl font-semibold text-gray-700 mb-6">各门店概览</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {stores.map((store) => (
+                      <StoreCard
+                        key={store.id}
+                        store={store}
+                        onClick={() => onSelectStore(store)}
+                      />
+                    ))}
+                    {/* 添加新门店卡片 */}
+                    <AddStoreCard />
+                  </div>
+                </div>
+              </main>
+            </div>
+          );
+        }
+
+        /**
+         * KpiCard (新版: 显示金额)
+         */
+        function KpiCard({ title, value, subtitle, icon, gradientClass, svgPatternClass }) {
+          return (
+            <div className={`relative p-6 rounded-lg shadow-xl overflow-hidden text-white flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.02] ${gradientClass}`}>
+              {/* SVG 背景图案 */}
+              <div className={svgPatternClass}></div>
+              
+              {/* 内容层 */}
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="p-3 rounded-full bg-white bg-opacity-20 backdrop-blur-sm mb-3">
+                  {icon}
+                </div>
+                <p className="text-xl font-bold mb-1 text-center">{title}</p>
+                {/* 金额 */}
+                <p className="text-3xl font-extrabold mb-2 text-center">{value}</p> 
+                <p className="text-sm opacity-90 text-center">{subtitle}</p>
+              </div>
+            </div>
+          );
+        }
+
+        /**
+         * 2. 单个门店的详细看板 (iFrame)
+         */
+        function StoreDashboard({ store, onBack }) {
+          if (!store) return null;
+
+          return (
+            <div className="min-A-screen bg-gray-100">
+              <div className="p-4 md:p-8">
+                {/* 页头和返回按钮 */}
+                <header className="bg-white p-4 rounded-lg shadow-lg flex items-center justify-between mb-6">
+                  <button
+                    onClick={onBack}
+                    className="flex items-center text-blue-600 hover:text-blue-800 transition-colors duration-300"
+                  >
+                    <IconArrowLeft size={20} className="mr-2" />
+                    返回概览
+                  </button>
+                  <h1 className="text-2xl md:text-3xl font-bold text-gray-800">{store.name}</h1>
+                  {/* 占位保持标题居中 */}
+                  <div style={{ width: '100px' }}></div> 
+                </header>
+
+                {/* iFrame 嵌入 */}
+                <div className="bg-white rounded-lg shadow-xl overflow-hidden" style={{ height: 'calc(100vh - 150px)' }}>
+                  <iframe
+                    src={store.url}
+                    title={store.name}
+                    className="w-full h-full border-0"
+                    sandbox="allow-scripts allow-same-origin allow-popups"
+                  ></iframe>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        /**
+         * 概览页 - 门店卡片
+         */
+        function StoreCard({ store, onClick }) {
+          const isPending = store.status === 'pending';
+
+          const cardContent = (
+            <React.Fragment>
+              <div className="flex flex-col items-center">
+                <span className="text-5xl mb-3">{store.icon || '🏪'}</span>
+                <h3 className="text-lg font-semibold text-gray-800">{store.name}</h3>
+                <p className="text-sm text-gray-500 mt-1">{store.subtitle}</p>
+              </div>
+              <div className="mt-4">
+                {isPending ? (
+                  <span className="block text-center text-sm font-medium text-yellow-600 bg-yellow-100 px-3 py-2 rounded-lg">
+                    部署中/待上传
+                  </span>
+                ) : (
+                  <span className="block text-center text-sm font-medium text-blue-600 hover:text-blue-800">
+                    点击查看报告 &rarr;
+                  </span>
+                )}
+              </div>
+            </React.Fragment>
+          );
+
+          if (isPending) {
+            return (
+              <div className="bg-white p-6 rounded-lg shadow-lg border-2 border-gray-200 opacity-60">
+                {cardContent}
+              </div>
+            );
+          }
+
+          return (
+            <button
+              onClick={onClick}
+              className="w-full bg-white p-6 rounded-lg shadow-lg border-2 border-transparent hover:shadow-xl transition-all duration-300 text-left scale-100 hover:scale-[1.03] hover:ring-2 hover:ring-blue-500 hover:ring-offset-2"
+            >
+              {cardContent}
+            </button>
+          );
+        }
+
+        /**
+         * AddStoreCard
+         */
+        function AddStoreCard() {
+          return (
+            <button className="w-full h-full min-h-[180px] flex flex-col items-center justify-center bg-white border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 shadow-lg hover:shadow-xl">
+              <IconPlus size={32} className="mb-2" />
+              <span className="font-semibold">添加新门店</span>
+              <span className="text-sm mt-1">上传 HTML 文件到仓库</span>
+            </button>
+          );
+        }
+
+        // --- App 主组件 ---
+        function App() {
+          const [selectedStore, setSelectedStore] = useState(null); 
+          const [storesData] = useState(MOCK_STORES);
+          const [totalMetrics, setTotalMetrics] = useState({
+            totalSales: 0,
+            totalVerification: 0, 
+            totalRefunds: 0, 
+          });
+
+          // 计算总KPI
+          useEffect(() => {
+            const sales = storesData.reduce((acc, store) => acc + store.salesAmount, 0);
+            const verification = storesData.reduce((acc, store) => acc + store.verificationAmount, 0);
+            const refunds = storesData.reduce((acc, store) => acc + store.refundAmount, 0);
+
+            setTotalMetrics({
+              totalSales: sales,
+              totalVerification: verification,
+              totalRefunds: refunds,
+            });
+          }, [storesData]);
+
+          // 渲染
+          if (selectedStore) {
+            return (
+              <StoreDashboard
+                store={selectedStore}
+                onBack={() => setSelectedStore(null)}
+              />
+            );
+          }
+
+          return (
+            <DashboardCenter
+              stores={storesData}
+              onSelectStore={setSelectedStore}
+              totalMetrics={totalMetrics}
+            />
+          );
+        }
+
+        // --- 6. 启动 React 应用 ---
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+    </script>
+</body>
+</html>
+
